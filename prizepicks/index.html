@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrizePicks Odds Analyzer</title>
+  <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+  <style>
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --surface2:   #21262d;
+      --border:     #30363d;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --green:      #3fb950;
+      --green-bg:   #0a2110;
+      --red:        #f85149;
+      --red-bg:     #2a0a09;
+      --yellow:     #e3b341;
+      --yellow-bg:  #2a200a;
+      --teal:       #00c2a8;
+      --purple:     #a371f7;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ─────────────────────────────────── */
+    header {
+      background: linear-gradient(160deg, #0d1117 0%, #1a0535 55%, #0d1117 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 32px 24px 24px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    header .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────── */
+    .container {
+      max-width: 1350px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: 370px 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .top-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── SHARED CARD ─────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card > .card-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── CONTROLS ─────────────────────────────────── */
+    .control-group { margin-bottom: 14px; }
+    .control-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .num-input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .num-input:focus { border-color: var(--teal); }
+
+    /* mode toggle */
+    .mode-toggle {
+      display: flex;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .mode-btn.active { background: var(--teal); color: #000; }
+
+    /* picks slider */
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    .slider-row input[type="range"] { flex: 1; accent-color: var(--teal); cursor: pointer; }
+    .picks-badge {
+      background: var(--teal);
+      color: #000;
+      font-weight: 800;
+      font-size: 1rem;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── PICK ROWS ───────────────────────────────── */
+    #picksContainer { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .pick-row {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .pick-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--teal);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+    }
+    .pick-top-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .pick-name-input {
+      padding: 7px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .pick-name-input:focus { border-color: var(--teal); }
+    .dir-btns { display: flex; gap: 4px; }
+    .dir-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .dir-btn.over.active  { background: var(--green); border-color: var(--green); color: #000; }
+    .dir-btn.under.active { background: var(--red);   border-color: var(--red);   color: #fff; }
+    .pick-bottom-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .mult-select {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.88rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .pick-prob-tag {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--teal);
+      white-space: nowrap;
+      background: rgba(0,194,168,0.12);
+      border: 1px solid rgba(0,194,168,0.3);
+      border-radius: 6px;
+      padding: 5px 9px;
+    }
+
+    /* ── BUTTONS ─────────────────────────────────── */
+    .btn-primary {
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg, var(--teal) 0%, #009e8c 100%);
+      border: none; border-radius: 9px;
+      color: #000; font-weight: 700; font-size: 1rem;
+      cursor: pointer; transition: opacity 0.15s;
+      margin-bottom: 8px;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary {
+      width: 100%; padding: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text); font-weight: 600; font-size: 1rem;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--purple); color: var(--purple); }
+
+    /* ── RESULTS ─────────────────────────────────── */
+    .results-panel { display: flex; flex-direction: column; gap: 14px; }
+    .no-results {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 180px;
+      color: var(--muted); text-align: center; gap: 8px;
+    }
+    .no-results .icon { font-size: 2.6rem; }
+
+    /* stat cards grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 560px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 15px;
+    }
+    .stat-card .s-label {
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--muted); margin-bottom: 5px;
+    }
+    .stat-card .s-value {
+      font-size: 1.45rem; font-weight: 800; color: var(--text);
+    }
+    .stat-card.is-positive { border-color: var(--green); background: var(--green-bg); }
+    .stat-card.is-positive .s-value { color: var(--green); }
+    .stat-card.is-negative { border-color: var(--red); background: var(--red-bg); }
+    .stat-card.is-negative .s-value { color: var(--red); }
+    .stat-card.is-warn { border-color: var(--yellow); background: var(--yellow-bg); }
+    .stat-card.is-warn .s-value { color: var(--yellow); }
+    .stat-card.is-accent { border-color: var(--teal); }
+    .stat-card.is-accent .s-value { color: var(--teal); }
+
+    /* picks summary table */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .table-wrap thead th {
+      padding: 9px 14px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      text-align: left;
+    }
+    .table-wrap thead th:not(:first-child) { text-align: center; }
+    .table-wrap tbody td {
+      padding: 9px 14px;
+      border-top: 1px solid var(--border);
+      text-align: left;
+    }
+    .table-wrap tbody td:not(:first-child) { text-align: center; }
+    .table-wrap tbody tr:hover td { background: rgba(255,255,255,0.02); }
+    .table-wrap tfoot td {
+      padding: 10px 14px;
+      border-top: 2px solid var(--border);
+      font-weight: 700;
+      background: var(--bg);
+    }
+    .table-wrap tfoot td:not(:first-child) { text-align: center; }
+
+    /* flex table color rows */
+    .row-profit td:not(.row-label) { color: var(--green); }
+    .row-partial td:not(.row-label) { color: var(--yellow); }
+    .row-loss td:not(.row-label)    { color: var(--muted); }
+
+    /* ── CHARTS ──────────────────────────────────── */
+    .charts-section { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-card .chart-title {
+      font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); margin-bottom: 14px;
+    }
+    .two-col-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) { .two-col-charts { grid-template-columns: 1fr; } }
+    .chart-placeholder {
+      height: 360px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 0.9rem;
+    }
+
+    /* sim status bar */
+    .sim-status {
+      text-align: center; padding: 10px;
+      color: var(--muted); font-size: 0.88rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .sim-status strong { color: var(--text); }
+
+    /* spinning loader */
+    .spin { display: inline-block; animation: rotate 1s linear infinite; }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    /* ── EXPLANATION ──────────────────────────────── */
+    .explanation {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+    }
+    .explanation h2 {
+      font-size: 1.15rem; font-weight: 700;
+      color: var(--teal); margin-bottom: 16px;
+    }
+    .explanation p {
+      color: var(--muted); margin-bottom: 14px; line-height: 1.85;
+    }
+    .explanation p:last-child { margin-bottom: 0; }
+    .explanation strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PrizePicks Odds Analyzer</h1>
+  <p class="subtitle">See the true probability, expected value, and house edge behind every pick slip</p>
+</header>
+
+<div class="container">
+
+  <!-- ══ TOP: CONTROLS + RESULTS ══ -->
+  <div class="top-grid">
+
+    <!-- LEFT: Slip Builder -->
+    <div class="card">
+      <div class="card-title">Build Your Slip</div>
+
+      <div class="control-group">
+        <label class="control-label">Entry Amount ($)</label>
+        <input type="number" class="num-input" id="entryAmount" value="10" min="1" max="100000" step="1">
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Play Mode</label>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="powerBtn" onclick="setMode('power')">⚡ Power Play</button>
+          <button class="mode-btn"        id="flexBtn"  onclick="setMode('flex')">🔄 Flex Play</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Number of Picks</label>
+        <div class="slider-row">
+          <input type="range" id="numPicksSlider" min="2" max="6" value="3"
+                 oninput="onNumPicksChange(this.value)">
+          <div class="picks-badge" id="picksCountBadge">3</div>
+        </div>
+      </div>
+
+      <div id="picksContainer"></div>
+
+      <button class="btn-primary"    onclick="calculate()">Calculate Odds</button>
+      <button class="btn-secondary"  onclick="runSimulation()">Run 10,000 Simulations</button>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div class="results-panel">
+      <div class="card">
+        <div class="card-title">Results</div>
+        <div id="resultsContent">
+          <div class="no-results">
+            <div class="icon">📊</div>
+            <div>Build your slip and click <strong style="color:var(--text)">Calculate Odds</strong><br>to reveal the math</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /top-grid -->
+
+  <!-- ══ CHARTS ══ -->
+  <div class="charts-section">
+
+    <!-- Probability distribution (shown after Calculate) -->
+    <div class="chart-card">
+      <div class="chart-title">Probability Distribution of Outcomes</div>
+      <div id="probChart">
+        <div class="chart-placeholder">Click "Calculate Odds" to see the outcome distribution</div>
+      </div>
+    </div>
+
+    <!-- Simulation charts (shown after Simulate) -->
+    <div class="two-col-charts hidden" id="simChartsRow">
+      <div class="chart-card">
+        <div class="chart-title">Simulation Results — 10,000 Runs</div>
+        <div id="simHistChart" style="height:340px;"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Running Average Return (Law of Large Numbers)</div>
+        <div id="evConvChart" style="height:340px;"></div>
+      </div>
+    </div>
+
+    <div id="simStatusBar" class="sim-status hidden"></div>
+
+  </div><!-- /charts-section -->
+
+  <!-- ══ EXPLANATION ══ -->
+  <div class="explanation">
+    <h2>Understanding the Math Behind PrizePicks</h2>
+    <p>
+      PrizePicks is a Daily Fantasy Sports pick'em platform where you predict whether a player's stat will go Over or Under a set line. Each pick is modeled as an <strong>independent event</strong> with its own implied probability — a concept central to probability theory. The <strong>implied probability</strong> of each pick is derived directly from its individual multiplier using the formula <strong>p = 0.5 ÷ multiplier</strong>: a Goblin pick (e.g., 0.5x) implies roughly a 95% chance of hitting since the stat line is set far in the player's favor, while a Demon pick (e.g., 4x) implies only about a 12.5% chance. In a Power Play, you must get <em>all</em> picks correct, so the combined win probability is the <strong>product of each pick's individual probability</strong> — a direct application of the multiplication rule for independent events. As you add more picks, that combined probability collapses rapidly, and this tool makes that collapse visible.
+    </p>
+    <p>
+      The <strong>Expected Value (EV)</strong> of a bet is the average net gain per wager over many repetitions: EV = (Payout × P(Win)) − Entry. A negative EV means the house systematically profits over time. For Flex Play — where partial payouts exist for missing one or two picks — the EV is computed as the sum of each outcome's payout weighted by its probability of occurring. This is an application of the <strong>Law of Total Expectation</strong>. The probability of exactly <em>k</em> correct picks out of <em>n</em> picks with <em>different individual probabilities</em> is computed via the <strong>Poisson Binomial distribution</strong> (a generalization of the Binomial), calculated here using dynamic programming. The <strong>House Edge</strong> is the percentage of each dollar wagered that PrizePicks retains on average. For standard 50/50 picks in Power Play mode, the house edge ranges from roughly 25% (2–5 picks) to over 60% (6 picks) — far higher than traditional sportsbooks, which typically charge 4–10% vig.
+    </p>
+    <p>
+      The <strong>Run 10,000 Simulations</strong> feature demonstrates the <strong>Law of Large Numbers</strong> in action: over many repeated bets, the observed average return per dollar converges toward the theoretical Expected Value. The histogram overlays your simulated outcomes against the theoretical probabilities, letting you visually confirm that the math matches reality. The convergence chart traces the running average EV as a function of the number of bets placed — the line visibly stabilizes around the theoretical EV as the sample size grows. Adjusting Demon picks and observing how the house edge shifts illustrates a key lesson: <strong>higher potential payouts come with dramatically lower win probabilities, and the house always builds in its edge regardless of the multiplier you choose.</strong>
+    </p>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ================================================================
+//  CONSTANTS
+// ================================================================
+
+// PrizePicks Power Play base payout multipliers by number of picks
+const POWER_BASE = { 2: 3, 3: 5, 4: 10, 5: 20, 6: 25 };
+
+// PrizePicks Flex Play base payout multipliers
+// FLEX_BASE[n][k] = multiplier when k out of n picks are correct
+const FLEX_BASE = {
+  3: { 0: 0,   1: 0,   2: 1,   3: 3   },
+  4: { 0: 0,   1: 0,   2: 0,   3: 1.5, 4: 6   },
+  5: { 0: 0,   1: 0,   2: 0,   3: 0.4, 4: 2,   5: 10  },
+  6: { 0: 0,   1: 0,   2: 0,   3: 0,   4: 0.4, 5: 2,   6: 25 }
+};
+
+// Individual pick multiplier options with labels
+const MULT_OPTIONS = [
+  { value: 0.5,  label: '0.5x — Goblin++'  },
+  { value: 0.75, label: '0.75x — Goblin+'  },
+  { value: 0.87, label: '0.87x — Goblin'   },
+  { value: 1.0,  label: '1.0x — Standard'  },
+  { value: 1.5,  label: '1.5x'             },
+  { value: 2.0,  label: '2.0x'             },
+  { value: 3.0,  label: '3.0x — Demon'     },
+  { value: 4.0,  label: '4.0x — Demon+'    },
+  { value: 10.0, label: '10x — Demon++'    },
+  { value: 25.0, label: '25x — Demon+++'   },
+];
+
+// Plotly shared layout config for dark theme
+const PL_LAYOUT = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  '#0d1117',
+  font:   { color: '#e6edf3', family: '-apple-system, sans-serif', size: 12 },
+  xaxis:  { gridcolor: '#21262d', zerolinecolor: '#30363d' },
+  yaxis:  { gridcolor: '#21262d', zerolinecolor: '#30363d' },
+  margin: { t: 16, r: 16, b: 55, l: 65 },
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: '#e6edf3', size: 11 },
+            orientation: 'h', x: 0.5, xanchor: 'center', y: 1.08 }
+};
+const PL_CONFIG = { responsive: true, displayModeBar: false };
+
+// ================================================================
+//  STATE
+// ================================================================
+let currentMode      = 'power';
+let currentN         = 3;
+let lastProbDist     = null;   // stored after Calculate for use in Simulate
+let lastTheoEV       = null;   // theoretical EV (stored after Calculate)
+let lastEntry        = 10;
+let lastTotalIndMult = 1;
+let lastMode         = 'power';
+let lastN            = 3;
+
+// ================================================================
+//  UTILITY FUNCTIONS
+// ================================================================
+
+// Implied win probability from individual pick multiplier: p = 0.5 / m
+// Formula: a standard 50% pick has m=1.0. A harder pick (m>1) has p<0.5, easier (m<1) has p>0.5.
+function impliedProb(m) {
+  return Math.min(0.95, Math.max(0.02, 0.5 / m));
+}
+
+function fmtPct(p, d = 2) {
+  return (p * 100).toFixed(d) + '%';
+}
+
+function fmtMult(m) {
+  return m.toFixed(2) + 'x';
+}
+
+function fmtDollarSigned(v) {
+  const abs = Math.abs(v).toFixed(2);
+  return (v >= 0 ? '+$' : '-$') + abs;
+}
+
+function fmtDollar(v) {
+  return '$' + Math.abs(v).toFixed(2);
+}
+
+// Poisson Binomial distribution via dynamic programming.
+// Given probs[i] = P(pick i correct), returns dp where dp[k] = P(exactly k correct).
+// Generalizes the Binomial to picks with different individual probabilities.
+function poissonBinomialDP(probs) {
+  let dp = [1.0];  // dp[0] = 1 initially (0 picks processed)
+  for (const p of probs) {
+    const next = new Array(dp.length + 1).fill(0);
+    for (let j = 0; j < dp.length; j++) {
+      next[j]     += dp[j] * (1 - p);  // this pick missed
+      next[j + 1] += dp[j] * p;        // this pick hit
+    }
+    dp = next;
+  }
+  return dp;  // dp[k] = P(exactly k correct), for k = 0 .. n
+}
+
+// ================================================================
+//  UI: MODE & PICK COUNT
+// ================================================================
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('powerBtn').classList.toggle('active', mode === 'power');
+  document.getElementById('flexBtn').classList.toggle('active',  mode === 'flex');
+
+  const slider = document.getElementById('numPicksSlider');
+  // Flex Play requires at least 3 picks
+  if (mode === 'flex') {
+    slider.min = 3;
+    if (parseInt(slider.value) < 3) {
+      slider.value = 3;
+      currentN = 3;
+      document.getElementById('picksCountBadge').textContent = 3;
+    }
+  } else {
+    slider.min = 2;
+  }
+  generatePickRows(currentN);
+}
+
+function onNumPicksChange(val) {
+  currentN = parseInt(val);
+  document.getElementById('picksCountBadge').textContent = currentN;
+  generatePickRows(currentN);
+}
+
+// ================================================================
+//  UI: PICK ROW GENERATION
+// ================================================================
+
+function generatePickRows(n) {
+  const container = document.getElementById('picksContainer');
+
+  // Preserve any data the user already entered
+  const existing = [];
+  container.querySelectorAll('.pick-row').forEach(row => {
+    existing.push({
+      name: row.querySelector('.pick-name-input').value,
+      dir:  row.querySelector('.dir-btn.active')?.dataset.dir || 'over',
+      mult: parseFloat(row.querySelector('.mult-select').value)
+    });
+  });
+
+  container.innerHTML = '';
+
+  for (let i = 0; i < n; i++) {
+    const prev = existing[i] || { name: '', dir: 'over', mult: 1.0 };
+    const prob = impliedProb(prev.mult);
+
+    const optHtml = MULT_OPTIONS.map(o =>
+      `<option value="${o.value}" ${Math.abs(o.value - prev.mult) < 0.001 ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+
+    const row = document.createElement('div');
+    row.className = 'pick-row';
+    row.innerHTML = `
+      <div class="pick-num">Pick ${i + 1}</div>
+      <div class="pick-top-row">
+        <input type="text" class="pick-name-input" placeholder="Player name" value="${prev.name}">
+        <div class="dir-btns">
+          <button class="dir-btn over  ${prev.dir === 'over'  ? 'active' : ''}"
+                  data-dir="over"  onclick="toggleDir(this)">▲ Over</button>
+          <button class="dir-btn under ${prev.dir === 'under' ? 'active' : ''}"
+                  data-dir="under" onclick="toggleDir(this)">▼ Under</button>
+        </div>
+      </div>
+      <div class="pick-bottom-row">
+        <select class="mult-select" onchange="onMultChange(this)">
+          ${optHtml}
+        </select>
+        <span class="pick-prob-tag">${fmtPct(prob)} win</span>
+      </div>
+    `;
+    container.appendChild(row);
+  }
+}
+
+function toggleDir(btn) {
+  btn.closest('.pick-top-row').querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function onMultChange(sel) {
+  const tag = sel.closest('.pick-row').querySelector('.pick-prob-tag');
+  tag.textContent = fmtPct(impliedProb(parseFloat(sel.value))) + ' win';
+}
+
+function getPicksData() {
+  return Array.from(document.querySelectorAll('.pick-row')).map((row, i) => ({
+    name: row.querySelector('.pick-name-input').value.trim() || `Player ${i + 1}`,
+    dir:  row.querySelector('.dir-btn.active')?.dataset.dir || 'over',
+    mult: parseFloat(row.querySelector('.mult-select').value)
+  }));
+}
+
+// ================================================================
+//  MAIN CALCULATION
+// ================================================================
+
+function calculate() {
+  const entry = parseFloat(document.getElementById('entryAmount').value) || 10;
+  const n     = currentN;
+  const mode  = currentMode;
+  const picks = getPicksData();
+
+  // Individual pick probabilities and combined multiplier
+  const probs          = picks.map(p => impliedProb(p.mult));
+  const totalIndivMult = picks.reduce((acc, p) => acc * p.mult, 1);
+
+  // Compute full outcome probability distribution (Poisson Binomial)
+  const probDist = poissonBinomialDP(probs);
+
+  // Store state for simulation
+  lastProbDist     = probDist;
+  lastEntry        = entry;
+  lastTotalIndMult = totalIndivMult;
+  lastMode         = mode;
+  lastN            = n;
+
+  // Hide simulation charts until simulate is clicked
+  document.getElementById('simChartsRow').classList.add('hidden');
+  document.getElementById('simStatusBar').classList.add('hidden');
+
+  if (mode === 'power') {
+    renderPower(entry, n, picks, probs, totalIndivMult, probDist);
+  } else {
+    renderFlex(entry, n, picks, probs, totalIndivMult, probDist);
+  }
+}
+
+// ── POWER PLAY ──────────────────────────────────────────────────
+function renderPower(entry, n, picks, probs, totalIndivMult, probDist) {
+  const baseMult  = POWER_BASE[n];
+  const totalMult = baseMult * totalIndivMult;       // final payout multiplier
+  const pWin      = probDist[n];                      // P(all correct)
+  const payout    = totalMult * entry;               // total payout if win
+  const expReturn = pWin * payout;                   // expected return
+  const ev        = expReturn - entry;               // net expected value
+  const houseEdge = (1 - expReturn / entry) * 100;  // house edge %
+  const fairMult  = 1 / pWin;                       // multiplier for zero-edge game
+
+  lastTheoEV = ev;
+
+  const html = `
+    <div class="stats-grid" style="margin-bottom:12px">
+      ${sCard('Win Probability',  fmtPct(pWin),                          'is-warn')}
+      ${sCard('Total Multiplier', fmtMult(totalMult),                    'is-accent')}
+      ${sCard('Total Payout',     fmtDollar(payout),                     'is-accent')}
+      ${sCard('Expected Value',   fmtDollarSigned(ev),                   ev >= 0 ? 'is-positive' : 'is-negative')}
+      ${sCard('House Edge',       houseEdge.toFixed(1) + '%',            'is-negative')}
+      ${sCard('Fair Multiplier',  fmtMult(fairMult),                     '')}
+    </div>
+    ${pickTableHTML(picks, probs)}
+  `;
+
+  document.getElementById('resultsContent').innerHTML = html;
+  plotProbDist(probDist, n, 'power', null, totalMult, entry);
+}
+
+// ── FLEX PLAY ───────────────────────────────────────────────────
+function renderFlex(entry, n, picks, probs, totalIndivMult, probDist) {
+  const flexMap = FLEX_BASE[n];
+  let ev = -entry;
+  const rows = [];
+
+  // Build payout table for each outcome k
+  for (let k = 0; k <= n; k++) {
+    const baseFlexMult = flexMap[k] || 0;
+    const finalMult    = baseFlexMult * totalIndivMult;  // individual mults scale all tiers
+    const payout       = finalMult * entry;
+    const prob         = probDist[k];
+    const evContrib    = prob * payout;   // this outcome's contribution to expected return
+    ev += evContrib;
+    rows.push({ k, prob, baseFlexMult, finalMult, payout, evContrib });
+  }
+
+  const expReturn = ev + entry;           // total expected return per bet
+  const houseEdge = (-ev / entry) * 100;
+  const topMult   = (flexMap[n] || 0) * totalIndivMult;
+  const topPayout = topMult * entry;
+  const pWin      = probDist[n];
+
+  lastTheoEV = ev;
+
+  // Build the flex breakdown table
+  const flexTableHTML = `
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <thead>
+          <tr>
+            <th>Correct</th>
+            <th>Probability</th>
+            <th>Multiplier</th>
+            <th>Payout</th>
+            <th>EV Contribution</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => {
+            const rowCls = r.payout > entry ? 'row-profit' : r.payout > 0 ? 'row-partial' : 'row-loss';
+            return `
+              <tr class="${rowCls}">
+                <td class="row-label"><strong>${r.k}/${n}</strong></td>
+                <td>${fmtPct(r.prob)}</td>
+                <td>${r.finalMult > 0 ? fmtMult(r.finalMult) : '—'}</td>
+                <td>${r.payout > 0 ? fmtDollar(r.payout) : 'Loss'}</td>
+                <td>${r.payout > 0 ? '+' + fmtDollar(r.evContrib) : '—'}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Expected Return per Bet</td>
+            <td style="color:${expReturn >= entry ? 'var(--green)' : 'var(--red)'}">
+              ${fmtDollar(expReturn)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+
+  const html = `
+    <div class="stats-grid" style="margin-bottom:12px">
+      ${sCard('Win Probability',  fmtPct(pWin),                          'is-warn')}
+      ${sCard('Max Multiplier',   fmtMult(topMult),                      'is-accent')}
+      ${sCard('Max Payout',       fmtDollar(topPayout),                  'is-accent')}
+      ${sCard('Expected Value',   fmtDollarSigned(ev),                   ev >= 0 ? 'is-positive' : 'is-negative')}
+      ${sCard('House Edge',       houseEdge.toFixed(1) + '%',            'is-negative')}
+      ${sCard('Exp. Return',      fmtDollar(expReturn),                  '')}
+    </div>
+    ${pickTableHTML(picks, probs)}
+    ${flexTableHTML}
+  `;
+
+  document.getElementById('resultsContent').innerHTML = html;
+  plotProbDist(probDist, n, 'flex', flexMap, totalIndivMult, entry);
+}
+
+// ── HTML HELPERS ─────────────────────────────────────────────────
+function sCard(label, value, cls = '') {
+  return `
+    <div class="stat-card ${cls}">
+      <div class="s-label">${label}</div>
+      <div class="s-value">${value}</div>
+    </div>`;
+}
+
+function pickTableHTML(picks, probs) {
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Direction</th>
+            <th>Mult</th>
+            <th>Win Prob</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${picks.map((p, i) => `
+            <tr>
+              <td><strong>${p.name}</strong></td>
+              <td style="color:${p.dir === 'over' ? 'var(--green)' : 'var(--red)'}">
+                ${p.dir === 'over' ? '▲ Over' : '▼ Under'}
+              </td>
+              <td style="color:var(--teal)">${fmtMult(p.mult)}</td>
+              <td>${fmtPct(probs[i])}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ================================================================
+//  CHARTS
+// ================================================================
+
+function plotProbDist(probDist, n, mode, flexMap, totalMult, entry) {
+  const labels = probDist.map((_, k) => `${k}/${n}`);
+
+  // Determine payout at each outcome level for color-coding and annotation
+  const payouts = probDist.map((_, k) => {
+    if (mode === 'power') return k === n ? totalMult * entry : 0;
+    return ((flexMap[k] || 0) * totalMult) * entry;
+  });
+
+  const colors = payouts.map(p => {
+    if (p > entry)  return '#3fb950';  // profit — green
+    if (p > 0)      return '#e3b341';  // partial return — yellow
+    return '#f85149';                   // total loss — red
+  });
+
+  const annotations = probDist.map((p, k) => ({
+    x: labels[k], y: p,
+    text: payouts[k] > 0 ? '$' + payouts[k].toFixed(0) : 'Loss',
+    yanchor: 'bottom', xanchor: 'center',
+    showarrow: false,
+    font: { size: 10, color: '#e6edf3' },
+    yshift: 5
+  }));
+
+  const trace = {
+    x: labels, y: probDist,
+    type: 'bar',
+    marker: { color: colors, line: { color: '#30363d', width: 1 } },
+    customdata: probDist.map((p, k) =>
+      `<b>${labels[k]} Correct</b><br>Probability: ${fmtPct(p)}<br>` +
+      (payouts[k] > 0
+        ? `Payout: $${payouts[k].toFixed(2)} (${fmtMult(payouts[k]/entry)})`
+        : 'Payout: Total Loss')
+    ),
+    hovertemplate: '%{customdata}<extra></extra>'
+  };
+
+  const layout = {
+    ...PL_LAYOUT,
+    xaxis: { ...PL_LAYOUT.xaxis, title: { text: 'Picks Correct', standoff: 12 } },
+    yaxis: { ...PL_LAYOUT.yaxis, title: 'Probability', tickformat: '.1%' },
+    annotations,
+    height: 360
+  };
+
+  Plotly.newPlot('probChart', [trace], layout, PL_CONFIG);
+}
+
+function plotSimHistogram(outcomeCounts, n, numSims, theorDist) {
+  const labels   = outcomeCounts.map((_, k) => `${k}/${n}`);
+  const simFreqs = outcomeCounts.map(c => c / numSims);
+
+  const barTrace = {
+    x: labels, y: simFreqs,
+    type: 'bar', name: 'Simulated',
+    marker: { color: '#a371f7', opacity: 0.8, line: { color: '#30363d', width: 1 } },
+    hovertemplate: '%{x}: %{y:.2%}<extra>Simulated</extra>'
+  };
+
+  const dotTrace = {
+    x: labels, y: theorDist,
+    type: 'scatter', mode: 'markers', name: 'Theoretical',
+    marker: { color: '#00c2a8', size: 11, symbol: 'diamond',
+              line: { color: '#fff', width: 1 } },
+    hovertemplate: '%{x}: %{y:.2%}<extra>Theoretical</extra>'
+  };
+
+  const layout = {
+    ...PL_LAYOUT,
+    xaxis: { ...PL_LAYOUT.xaxis, title: { text: 'Picks Correct', standoff: 12 } },
+    yaxis: { ...PL_LAYOUT.yaxis, title: 'Proportion', tickformat: '.1%' },
+    barmode: 'overlay',
+    height: 340
+  };
+
+  Plotly.newPlot('simHistChart', [barTrace, dotTrace], layout, PL_CONFIG);
+}
+
+function plotEVConvergence(checkpoints, entry, theorEV) {
+  const xs = checkpoints.map(d => d.sim);
+  const ys = checkpoints.map(d => d.avg - entry);  // convert avg return to net EV
+
+  const runTrace = {
+    x: xs, y: ys,
+    type: 'scatter', mode: 'lines', name: 'Running Avg EV',
+    line: { color: '#a371f7', width: 2 },
+    hovertemplate: 'After %{x} bets<br>Avg EV: $%{y:.3f}<extra></extra>'
+  };
+
+  const theorLine = {
+    x: [xs[0], xs[xs.length - 1]],
+    y: [theorEV, theorEV],
+    type: 'scatter', mode: 'lines', name: `Theoretical EV ($${theorEV.toFixed(2)})`,
+    line: { color: '#00c2a8', width: 1.5, dash: 'dash' },
+    hoverinfo: 'skip'
+  };
+
+  const zeroLine = {
+    x: [xs[0], xs[xs.length - 1]], y: [0, 0],
+    type: 'scatter', mode: 'lines', name: 'Break Even ($0)',
+    line: { color: '#3fb950', width: 1, dash: 'dot' },
+    hoverinfo: 'skip'
+  };
+
+  const layout = {
+    ...PL_LAYOUT,
+    xaxis: { ...PL_LAYOUT.xaxis, title: { text: 'Number of Bets Placed', standoff: 12 } },
+    yaxis: { ...PL_LAYOUT.yaxis, title: 'Avg EV per Bet ($)' },
+    height: 340
+  };
+
+  Plotly.newPlot('evConvChart', [runTrace, theorLine, zeroLine], layout, PL_CONFIG);
+}
+
+// ================================================================
+//  SIMULATION
+// ================================================================
+
+function runSimulation() {
+  if (!lastProbDist) {
+    alert('Please click "Calculate Odds" first to set up the slip.');
+    return;
+  }
+
+  const entry        = lastEntry;
+  const n            = lastN;
+  const mode         = lastMode;
+  const totalIndMult = lastTotalIndMult;
+  const picks        = getPicksData();
+  const probs        = picks.map(p => impliedProb(p.mult));
+  const flexMap      = mode === 'flex' ? FLEX_BASE[n] : null;
+  const NUM_SIMS     = 10000;
+
+  const statusBar = document.getElementById('simStatusBar');
+  statusBar.classList.remove('hidden');
+  statusBar.innerHTML = '<span class="spin">⟳</span>  Running 10,000 simulations…';
+
+  // Use setTimeout to allow the browser to paint the loading state before heavy work
+  setTimeout(() => {
+    const outcomeCounts = new Array(n + 1).fill(0);
+    const checkpoints   = [];   // running average data points (every 100 sims)
+    let totalReturn = 0;
+
+    for (let sim = 0; sim < NUM_SIMS; sim++) {
+      // Simulate each pick independently
+      let correct = 0;
+      for (let i = 0; i < n; i++) {
+        if (Math.random() < probs[i]) correct++;
+      }
+      outcomeCounts[correct]++;
+
+      // Determine payout for this outcome
+      let payout = 0;
+      if (mode === 'power') {
+        payout = correct === n ? POWER_BASE[n] * totalIndMult * entry : 0;
+      } else {
+        payout = ((flexMap[correct] || 0) * totalIndMult) * entry;
+      }
+      totalReturn += payout;
+
+      // Record checkpoint every 100 sims for the convergence chart
+      if ((sim + 1) % 100 === 0) {
+        checkpoints.push({ sim: sim + 1, avg: totalReturn / (sim + 1) });
+      }
+    }
+
+    const avgReturn = totalReturn / NUM_SIMS;
+    const simEV     = avgReturn - entry;
+
+    // Render charts
+    plotSimHistogram(outcomeCounts, n, NUM_SIMS, lastProbDist);
+    plotEVConvergence(checkpoints, entry, lastTheoEV);
+    document.getElementById('simChartsRow').classList.remove('hidden');
+
+    // Show summary
+    const evColor = simEV >= 0 ? 'var(--green)' : 'var(--red)';
+    statusBar.innerHTML =
+      `✓ Simulation complete — ` +
+      `avg return: <strong>${fmtDollar(avgReturn)}</strong> per $${entry} bet &nbsp;|&nbsp; ` +
+      `simulated EV: <strong style="color:${evColor}">${fmtDollarSigned(simEV)}</strong> &nbsp;|&nbsp; ` +
+      `theoretical EV: <strong style="color:${evColor}">${fmtDollarSigned(lastTheoEV)}</strong>`;
+
+  }, 25);
+}
+
+// ================================================================
+//  INITIALIZATION
+// ================================================================
+generatePickRows(currentN);
+
+</script>
+</body>
+</html>
